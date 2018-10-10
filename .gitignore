@@ -1,0 +1,10 @@
+*.pyc
+*.pyo
+dist/
+build/
+StcConf/
+MANIFEST
+*.egg-info/
+*.pdf
+*.doc
+*.xml
