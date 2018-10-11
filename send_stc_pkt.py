@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-s
 '''
-Main module for z-tester, suppose to be called by Intelligent Test System.
+send spirent test center's traffic according the configuration file, suppose to be called by Intelligent Test System.
 Created on Oct 2, 2018
 @author: zevloy
 '''
@@ -34,8 +34,19 @@ def get_next_ip(s):
     return str(long2ip(ip2long(s) + 1))
 
 
-if __name__ == '__main__':
-    init_conf("StcConf\case91_traffic_config.xml")
+def send_stc_pkt(f="StcConf\case91_traffic_config.xml"):
+    """ip=ip+1, include x.x.x.0 and x.x.x.255,
+
+    :param s: string type of ip .
+    :returns: ip+1
+    :raises:
+    """
+    #TODO:convert the IP option field from Stc to scapy format.
+    #ip_opt = 0
+    #TODO:convert the TCP option field from Stc to scapy format.
+    #tcp_opt = 0
+
+    init_conf(f)
     traffic_config = get_conf()
     print traffic_config
 
@@ -46,19 +57,6 @@ if __name__ == '__main__':
     if traffic_config["l3_protocol"] == "ipv4":
         ip_ver = 4
 
-    #convert the ip option field from Stc to scapy format.
-    ip_opt = 0
-
-    tcp_opt = 0
-    tcp_opt = (
-        int(traffic_config["tcp_urg_flag"]) << 5
-        | int(traffic_config["tcp_ack_flag"]) << 4
-        | int(traffic_config["tcp_psh_flag"]) << 3
-        | int(traffic_config["tcp_rst_flag"]) << 2
-        | int(traffic_config["tcp_syn_flag"]) << 1
-        | int(traffic_config["tcp_fin_flag"])
-        )
-    print "tcp opt", bin(tcp_opt)
     #L3 packet construction using Stc traffic parameters in traffic_config
     p3 = IP(
         version=int(ip_ver),
@@ -72,7 +70,7 @@ if __name__ == '__main__':
         proto=int(traffic_config["ip_protocol"]),
         #chksum=int(traffic_config["l3_length"]),
         dst=traffic_config["ip_dst_addr"],
-        src=traffic_config["ip_src_addr"],
+        src=traffic_config["ip_src_addr"]
         #options=tcp_opt
         )
 
@@ -87,7 +85,7 @@ if __name__ == '__main__':
         flags=int(traffic_config["tcp_ack_flag"]),
         window=int(traffic_config["tcp_window"]),
         #chksum=int(traffic_config[""]),
-        urgptr=int(traffic_config["tcp_urgent_ptr"]),
+        urgptr=int(traffic_config["tcp_urgent_ptr"])
         #options=[1, 2, 3, 4]
         )
 
@@ -96,13 +94,18 @@ if __name__ == '__main__':
 
     p = p3/p4/p5
     ls(p)
+    p.show()
 
-    burst_loop_count = 1000
+    #TODO:should fetch burst_loop_count from *_p1_tx.py
+    burst_loop_count = 1
+
     dst_ip = traffic_config["ip_dst_addr"]
     send(p)
 
     for i in range(burst_loop_count-1):
         dst_ip = get_next_valid_ip(dst_ip)
         p.dst = dst_ip
-        send(p)
+        #send(p)
 
+if __name__ == '__main__':
+    send_stc_pkt()

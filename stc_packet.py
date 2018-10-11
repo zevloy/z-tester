@@ -10,19 +10,18 @@ import xml.etree.ElementTree as ET
 from config import init_conf, get_stcPacket_conf
 
 
-
 class StcPacket(Packet):
     """define a sprirent test center kind of Packet Class"""
 
     name = "StcPacket"
 
-    init_conf("case91_traffic_config.xml")
+    init_conf("StcConf\case91_traffic_config.xml")
     custom_pattern, signature_length, payload_length, custom_pattern_length, padding_length = get_stcPacket_conf()
 
     fields_desc = [StrField("StcSignature", '0'*signature_length, fmt="H"), StrField("StcPadding", '0'*padding_length, fmt="H"), StrField("CustomPattern", '1'*custom_pattern_length, fmt="H")]
 
     def guess_payload_class(self, payload):
-        ''' Decides if the payload contain the Custom pattern'''    
+        ''' Decides if the payload contain the Custom pattern'''
         if payload.endswith(self.custom_pattern):
             return StcPacket
         else:
@@ -30,7 +29,6 @@ class StcPacket(Packet):
 
     def do_dissect(self, s):
         ''' From the Stc packet string, populate the scapy object '''
-
 
         self.setfieldval('StcSignature', s[0:self.signature_length])
         self.setfieldval('StcPadding', s[self.signature_length:(self.signature_length+self.padding_length)])
@@ -40,7 +38,7 @@ class StcPacket(Packet):
     def self_build(self, field_pos_list=None):
         ''' Generate the HTTP packet string (the opposite of do_dissect) '''
         p = ""
-        for f in self.fields_desc: 
+        for f in self.fields_desc:
             # Additional fields added for user-friendliness should be ignored
             if f.name not in ['StcSignature', 'StcPadding', 'CustomPattern']:
                 continue
