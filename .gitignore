@@ -8,3 +8,7 @@ MANIFEST
 *.pdf
 *.doc
 *.xml
+*.pcap
+*.cap
+*.log
+

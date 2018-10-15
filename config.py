@@ -7,12 +7,19 @@ Created on Oct 9, 2018
 '''
 import re
 import mmap
-
+import logging
 
 try:
     import xml.etree.cElementTree as ET
 except ImportError:
     import xml.etree.ElementTree as ET
+
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
+                    datefmt='%a, %d %b %Y %H:%M:%S',
+                    filename='myapp.log',
+                    filemode='w'
+                    )
 
 interface_config = {}
 traffic_config = {}
@@ -30,10 +37,10 @@ def make_interface_config_xml():
     mo = re.search(pattern, data)
 
     a = mo.group()
-    #print a
+    logging.debug(a)
 
     b = a.replace('int_ret0 = sth.interface_config (', '')
-    #print b
+    logging.debug(b)
 
     c = b.replace(')', '').replace('\r', '').replace('\n', '').replace('\t', '')
     #print c.split(',')
@@ -45,7 +52,7 @@ def make_interface_config_xml():
         g = e[1].replace(' ', '').replace('\'', '')
         interface_config[f] = g
 
-    print interface_config
+    logging.info(interface_config)
 
     for name, value in interface_config.items():
         ET.SubElement(interface_config_xml, name).text = value
@@ -62,38 +69,53 @@ def make_traffic_config_xml():
     data = f.read()
     f.close()
 
-    traffic_config_xml = ET.Element("traffic_config")
+    root = ET.Element("traffic_config")
 
     #正则表达式，用来提取脚本中对应参数的代码片段
     pattern = re.compile(r'streamblock_ret1 = sth.traffic_config(.?)\((.*?)\)', re.S)
     mo = re.search(pattern, data)
 
     a = mo.group()
-    print a
+    logging.info(a)
 
     #把代码片段中的无关的字符去掉
     b = a.replace('streamblock_ret1 = sth.traffic_config (', '')
-    print b
+    logging.info(b)
 
     c = b.replace(')', '').replace('\r', '').replace('\n', '').replace('\t', '')
-    print c
+    logging.info(c)
 
     for d in c.split(','):
         e = d.split('=')
-        print e
+        logging.info(e)
         f = e[0].replace(' ', '').replace('\'', '')
         g = e[1].replace(' ', '').replace('\'', '')
 
         #提取参数后加入字典
         traffic_config[f] = g
 
-    print traffic_config
+    logging.info(traffic_config)
+
+    eth = ET.SubElement(root, "ethernet")
+    ip = ET.SubElement(root, "ip")
+    tcp = ET.SubElement(root, "tcp")
+    stc = ET.SubElement(root, "stc_layer")
+    other = ET.SubElement(root, "other")
 
     #提取字典中的key-value，做成xml格式的文件。
     for name, value in traffic_config.items():
-        ET.SubElement(traffic_config_xml, name).text = value
+        if name in ["l2_encap", "mac_src", "mac_dst", "frame_size"]:
+            ET.SubElement(eth, name).text = value
+        elif name in ["ip_hdr_length", "ip_tos_field", "ip_id", "l3_protocol", "ip_ttl", "ip_fragment_offset", "ip_protocol", "l3_length", "ip_mbz", "ip_src_addr", "ip_dst_addr", "ip_precedence"]:
+            ET.SubElement(ip, name).text = value
+        elif name in ["tcp_src_port", "tcp_dst_port", "tcp_urgent_ptr", "tcp_checksum", "tcp_ack_flag", "tcp_data_offset", "tcp_ack_num", "tcp_fin_flag", "tcp_urg_flag", "tcp_window", "l4_protocol", "tcp_reserved", "tcp_reserved", "tcp_seq_num", "tcp_psh_flag", "tcp_syn_flag", "tcp_rst_flag"]:
+            ET.SubElement(tcp, name).text = value
+        elif name in ["custom_pattern", "disable_signature", "fill_value"]:
+            ET.SubElement(stc, name).text = value
+        else:
+            ET.SubElement(other, name).text = value
 
-    tree = ET.ElementTree(traffic_config_xml)
+    tree = ET.ElementTree(root)
     f_xml = file("StcConf\case91_traffic_config.xml", 'w')
     tree.write(f_xml)
     f_xml.close()
@@ -103,8 +125,9 @@ def _etree_to_dict(t):
         '''convert traffic parameters from an element tree obj to a dictionary'''
         root = t.getroot()
         data_dict = {}
-        for item in root:
-            data_dict[item.tag] = item.text
+        for child in root:
+            for item in child:
+                data_dict[item.tag] = item.text
         return data_dict
 
 
@@ -138,6 +161,7 @@ def get_stcPacket_conf():
     padding_length = l3_length - custom_pattern_length - signature_length - 40
 
     return custom_pattern, signature_length, l3_length-40, custom_pattern_length, padding_length
+
 
 if __name__ == '__main__':
     make_traffic_config_xml()
