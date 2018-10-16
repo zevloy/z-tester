@@ -12,7 +12,7 @@ from iptools.ipv4 import ip2long, long2ip
 
 
 def get_next_valid_ip(s):
-    """ip=ip+1, omit x.x.x.0 and x.x.x.255,
+    """ip = ip + 1, omit x.x.x.0 and x.x.x.255,
 
     :param s: string type of ip .
     :returns: string type of ip+1
@@ -41,68 +41,69 @@ if __name__ == '__main__':
 
     #p = IP()/TCP()/StcPacket(StcSignature="1234567890"*2, StcPadding="0"*1264, CustomPattern="1"*176)
 
-    #convert the ip version field from "ipv4" to 4.
-    ip_ver = 0
-    if traffic_config["l3_protocol"] == "ipv4":
-        ip_ver = 4
-
-    #convert the ip option field from Stc to scapy format.
-    ip_opt = 0
-
-    tcp_opt = 0
-    tcp_opt = (
-        int(traffic_config["tcp_urg_flag"]) << 5
-        | int(traffic_config["tcp_ack_flag"]) << 4
-        | int(traffic_config["tcp_psh_flag"]) << 3
-        | int(traffic_config["tcp_rst_flag"]) << 2
-        | int(traffic_config["tcp_syn_flag"]) << 1
-        | int(traffic_config["tcp_fin_flag"])
-        )
-    print "tcp opt", bin(tcp_opt)
     #L3 packet construction using Stc traffic parameters in traffic_config
-    p3 = IP(
-        version=int(ip_ver),
-        ihl=int(traffic_config["ip_hdr_length"]),
-        tos=int(traffic_config["ip_tos_field"]),
-        len=int(traffic_config["l3_length"]),
-        id=int(traffic_config["ip_id"]),
-        flags=int(traffic_config["ip_precedence"]),
-        frag=int(traffic_config["ip_fragment_offset"]),
-        ttl=int(traffic_config["ip_ttl"]),
-        proto=int(traffic_config["ip_protocol"]),
-        #chksum=int(traffic_config["l3_length"]),
-        dst=traffic_config["ip_dst_addr"],
-        src=traffic_config["ip_src_addr"],
-        #options=tcp_opt
-        )
+    p3 = IP()
+
+    if "ip_hdr_length" in traffic_config:
+        p3.ihl = int(traffic_config["ip_hdr_length"])
+    if "ip_tos_field" in traffic_config:
+        p3.tos = int(traffic_config["ip_tos_field"])
+    if "l3_length" in traffic_config:
+        p3.len = int(traffic_config["l3_length"])
+    if "ip_id" in traffic_config:
+        p3.id = int(traffic_config["ip_id"])
+    if "ip_precedence" in traffic_config:
+        p3.flags = int(traffic_config["ip_precedence"])
+    if "ip_fragment_offset" in traffic_config:
+        p3.frag = int(traffic_config["ip_fragment_offset"])
+    if "ip_ttl" in traffic_config:
+        p3.ttl = int(traffic_config["ip_ttl"])
+    if "ip_protocol" in traffic_config:
+        p3.proto = int(traffic_config["ip_protocol"])
+    if "ip_dst_addr" in traffic_config:
+        p3.dst = traffic_config["ip_dst_addr"]
+    if "ip_src_addr" in traffic_config:
+        p3.src = traffic_config["ip_src_addr"]
+    if "l3_protocol" in traffic_config:
+        if traffic_config["l3_protocol"] == "ipv4":
+            p3.version == 4
+        elif traffic_config["l3_protocol"] == "ipv6":
+            p3.version == 6
+        else:
+            logging.error("layer 3 version must be 4 or 6")
 
     #L4 packet construction using Stc traffic parameters in traffic_config
-    p4 = TCP(
-        sport=int(traffic_config["tcp_src_port"]),
-        dport=int(traffic_config["tcp_dst_port"]),
-        seq=int(traffic_config["tcp_seq_num"]),
-        ack=int(traffic_config["tcp_ack_num"]),
-        dataofs=int(traffic_config["tcp_data_offset"]),
-        reserved=int(traffic_config["tcp_reserved"]),
-        flags=int(traffic_config["tcp_ack_flag"]),
-        window=int(traffic_config["tcp_window"]),
-        #chksum=int(traffic_config[""]),
-        urgptr=int(traffic_config["tcp_urgent_ptr"]),
-        #options=[1, 2, 3, 4]
-        )
+    p4 = TCP()
+    if "tcp_src_port" in traffic_config:
+        p4.sport = int(traffic_config["tcp_src_port"])
+    if "tcp_dst_port" in traffic_config:
+        p4.dport = int(traffic_config["tcp_dst_port"])
+    if "tcp_seq_num" in traffic_config:
+        p4.seq = int(traffic_config["tcp_seq_num"])
+    if "tcp_ack_num" in traffic_config:
+        p4.ack = int(traffic_config["tcp_ack_num"])
+    if "tcp_data_offset" in traffic_config:
+        p4.dataofs = int(traffic_config["tcp_data_offset"])
+    if "tcp_reserved" in traffic_config:
+        p4.reserved = int(traffic_config["tcp_reserved"])
+    if "tcp_window" in traffic_config:
+        p4.window = int(traffic_config["tcp_window"])
+    if "tcp_urgent_ptr" in traffic_config:
+        p4.urgptr = int(traffic_config["tcp_urgent_ptr"])
 
-    # StcPacket() should only use defaut input parameters since the StcPacket layer is created according to the *traffic_config.xml
+    # Layer Beyond the TCP, StcPacket() should only use defaut input parameters since the StcPacket layer is created according to the *traffic_config.xml
     p5 = StcPacket()
 
     p = p3/p4/p5
     ls(p)
+    p.show()
 
-    burst_loop_count = 1000
+    burst_loop_count = 10
     dst_ip = traffic_config["ip_dst_addr"]
     send(p)
 
     for i in range(burst_loop_count-1):
         dst_ip = get_next_valid_ip(dst_ip)
         p.dst = dst_ip
+        p.show()
         send(p)
-

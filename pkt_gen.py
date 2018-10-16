@@ -18,6 +18,7 @@ logging.basicConfig(level=logging.DEBUG,
                 filename='myapp.log',
                 filemode='w')
 
+traffic_results_ret = {'status' : '0'}
 
 def get_next_valid_ip(s):
     """ip=ip+1, omit x.x.x.0 and x.x.x.255,
@@ -43,11 +44,11 @@ def get_next_ip(s):
 
 
 def send_stc_pkt(f="StcConf\case91_traffic_config.xml"):
-    """ip=ip+1, include x.x.x.0 and x.x.x.255,
+    """send packet according configuration file.
 
-    :param s: string type of ip .
-    :returns: ip+1
-    :raises:
+    :param f: configuration file .
+    :returns: None
+    :raises: None
     """
     #TODO:convert the IP option field from Stc to scapy format.
     #ip_opt = 0
@@ -56,9 +57,10 @@ def send_stc_pkt(f="StcConf\case91_traffic_config.xml"):
 
     init_conf(f)
     traffic_config = get_conf()
-    print traffic_config
+    #logging.info(traffic_config)
 
-    #p = IP()/TCP()/StcPacket(StcSignature="1234567890"*2, StcPadding="0"*1264, CustomPattern="1"*176)
+    #return a dictionary
+    global traffic_results_ret
 
     #L3 packet construction using Stc traffic parameters in traffic_config
     p3 = IP()
@@ -120,14 +122,36 @@ def send_stc_pkt(f="StcConf\case91_traffic_config.xml"):
     #TODO:should fetch burst_loop_count from *_p1_tx.py
     burst_loop_count = 5
 
-    dst_ip = traffic_config["ip_dst_addr"]
-    send(p)
+    try:
+        dst_ip = traffic_config["ip_dst_addr"]
+        send(p)
 
-    for i in range(burst_loop_count-1):
-        dst_ip = get_next_valid_ip(dst_ip)
-        p.dst = dst_ip
-        #send(p)
+        for i in range(burst_loop_count - 1):
+            dst_ip = get_next_valid_ip(dst_ip)
+            p.dst = dst_ip
+            #send(p)
+    except Exception, e:
+        logging.error(e)
+    else:
+        traffic_results_ret['status': '1']
+
+
+def traffic_stats(port_handle, mode):
+    """check the stats after packet sent, suppose to be called after send_stc_pkt().
+
+    :param port_handle: Tester Center's port, just 
+    :param mode: negelected
+    :returns: traffic result, the 'status' is used to determin if the result of tranffic sending.
+    :raises: None
+    """
+    return traffic_results_ret
+
 
 if __name__ == '__main__':
-    send_stc_pkt()
-    logging.info("DONE")
+    try:
+        send_stc_pkt()
+        logging.info("DONE")
+    except Exception, e:
+        print False
+    else:
+        print True
