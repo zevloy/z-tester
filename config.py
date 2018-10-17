@@ -69,7 +69,7 @@ def get_stcPacket_conf():
 
 if __name__ == '__main__':
 
-    init_conf("StcConf\case91_traffic_config.xml")
+    init_conf("StcConf/case91_p1_tx_traffic_config.xml")
     print get_conf()
 
     custom_pattern, signature_length, payload_length, custom_pattern_length, padding_length = get_stcPacket_conf()

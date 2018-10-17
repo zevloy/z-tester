@@ -1,14 +1,14 @@
 # -*- coding: UTF-8 -*-s
 '''
 utils mainly for creating configuration file based on the caseXX_p1_tx.py,
-take out this fuction from the config.py because it's kind of indepedent tools and
+seperate this fuction from the config.py because it's kind of indepedent tools and
 can be modified to create the configuraiton files of all the Case at one time.
 
 Created on Oct 16, 2018
 @author: zevloy
 '''
 import re
-import mmap
+import os
 import logging
 
 try:
@@ -17,15 +17,15 @@ except ImportError:
     import xml.etree.ElementTree as ET
 
 
-def make_interface_config_xml(f="StcConf/case91_p1_tx.py"):
+def make_interface_config_xml(fname):
     '''fetch paremeters about interface from script such as caseXX_p1_tx.py and generate an xml paremeter file'''
 
     interface_config = {}
 
     #file mode must be 'r' incase mess the case91_p1_tx.py up
-    f = file(f, "r")
-    data = f.read()
-    f.close()
+    f1 = file(fname, "r")
+    data = f1.read()
+    f1.close()
 
     interface_config_xml = ET.Element("interface_config")
 
@@ -52,20 +52,22 @@ def make_interface_config_xml(f="StcConf/case91_p1_tx.py"):
         ET.SubElement(interface_config_xml, name).text = value
 
     tree = ET.ElementTree(interface_config_xml)
-    f_xml = file("StcConf/case91_interface_config.xml", 'w')
+    f_interface_config_name = "StcConf/" + os.path.basename(fname).split(".")[0] + "_interface_config" + ".xml"
+    f_xml = file(f_interface_config_name, 'w')
+
     tree.write(f_xml,  encoding="UTF-8", xml_declaration="traffic configuration file", method="xml")
     f_xml.close()
 
 
-def make_traffic_config_xml(f='StcConf/case91_p1_tx.py'):
+def make_traffic_config_xml(fname):
     '''fetch paremeters about traffic from script such as caseXX_p1_tx.py and generate an xml paremeter file'''
 
     traffic_config = {}
 
     #file mode must be 'r' incase mess the case91_p1_tx.py up
-    f = file(f, "r")
-    data = f.read()
-    f.close()
+    f1 = file(fname, "r")
+    data = f1.read()
+    f1.close()
 
     root = ET.Element("traffic_config")
 
@@ -112,10 +114,32 @@ def make_traffic_config_xml(f='StcConf/case91_p1_tx.py'):
             ET.SubElement(other, name).text = value
 
     tree = ET.ElementTree(root)
-    f_xml = file("StcConf/case91_traffic_config.xml", 'w')
+
+    f_traffic_config_name = "StcConf/" + os.path.basename(fname).split(".")[0] + "_traffic_config" + ".xml"
+    f_xml = file(f_traffic_config_name, 'w')
     tree.write(f_xml, encoding="UTF-8", xml_declaration="traffic configuration file", method="xml")
     f_xml.close()
 
+
+def make_all_config_file(path, word):
+    """recursively search the files in 'path' with the 'word', mainly for find
+    all the caseXX_p1_tx.py file and make xml type of configuration file accordingly.
+
+    :param path: directory in which all the caseXX_p1_tx should be found.
+    :param word: substring pattern of caseXX_p1_tx, maybe always "p1_tx.py".
+    :returns:
+    :raises:
+    """
+    for filename in os.listdir(path):
+        fp = os.path.join(path, filename)
+        if os.path.isfile(fp) and word in filename:
+            make_traffic_config_xml(str(fp))
+            make_interface_config_xml(str(fp))
+        elif os.path.isdir(fp):
+            make_all_config_file(fp, word)
+
+
 if __name__ == '__main__':
-    make_traffic_config_xml()
-    make_interface_config_xml()
+    #make_traffic_config_xml()
+    #make_interface_config_xml()
+    make_all_config_file("d:/test", "p1_tx.py")

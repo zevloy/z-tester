@@ -11,7 +11,8 @@ from sys import argv
 from pkt_gen import send_stc_pkt, traffic_stats
 
 
-filename, jobid, casename, log_path, device, port_list, phy_mode, burst_loop_count = argv 
+filename, jobid, casename, log_path, device, port_list, phy_mode, burst_loop_count = argv
+
 
 def run_pkt_gen():
     # # create a instance of Transport
@@ -31,7 +32,7 @@ def run_pkt_gen():
 
 
 def fetch_log():
-    # create a instance of Transport 
+    # create a instance of Transport
     trans = paramiko.Transport(("211.94.162.158", 6556))
     # make connection
     trans.connect(username="root", password="111111")
@@ -46,34 +47,56 @@ def fetch_log():
     trans.close()
 
 
-#it is the IP of Spirent Test Center or the IP of packet generator.
-dev = device
-#the Tester's ports being used
-port_list = eval(port_list)
+def connect():
+    # # create a instance of Transport
+    trans = paramiko.Transport(("127.0.0.1", 22))
+    # make connection
+    trans.connect(username='vagrant', password='vagrant')
 
-port_handle = []
-#the directory for the log
-log_path = log_path + "/" + casename + "_"
-temp_path='../log/%s/TSC/%s_' % (jobid, casename)
+    # create a SSHClient instance
+    ssh = paramiko.SSHClient()
+    ssh._transport = trans
+    # execute the command
+    stdin, stdout, stderr = ssh.exec_command('ifconfig eth0')
+    if 'UP' in stdout.read().decode():
+        print "eth0 status is OK!"
+    else:
+        print "eth0 is down!"
 
-#send stc pkt
-pkt_gen.send_stc_pkt(f="StcConf\case91_traffic_config.xml")
+    # close the connection
+    trans.close()
 
 
-#get traffic sending result
-traffic_results_ret = pkt_generator.traffic_stats (
-        port_handle                                      = [port_handle[0],port_handle[1]],
-        mode                                             = 'all');
+def z_tester(filename, jobid, casename, log_path, device, port_list, phy_mode, burst_loop_count):
+    #it is the IP of Spirent Test Center or the IP of packet generator.
+    dev = device
+    #the Tester's ports being used
+    port_list = eval(port_list)
 
-status = traffic_results_ret['status']
-if (status == '0') :
-    print("run sth.traffic_stats failed")
-    print(traffic_results_ret)
-else:
-    print("***** run sth.traffic_stats successfully, and results is:")
-    print(traffic_results_ret)
+    port_handle = []
+    #the directory for the log
+    log_path = log_path + "/" + casename + "_"
+    temp_path = '../log/%s/TSC/%s_' % (jobid, casename)
 
-    t_filename=log_path+'traffic_all.txt'
-    fp = open(t_filename,'w+')
+    #send stc pkt
+    send_stc_pkt(f="StcConf/case91_traffic_config.xml")
+
+    #get traffic sending result
+    traffic_results_ret = traffic_stats(port_handle=[port_handle[0], port_handle[1]], mode='all')
+
+    status = traffic_results_ret['status']
+    if (status == '0'):
+        print("run sth.traffic_stats failed")
+        print(traffic_results_ret)
+    else:
+        print("***** run sth.traffic_stats successfully, and results is:")
+        print(traffic_results_ret)
+
+    t_filename = log_path + 'traffic_all.txt'
+    fp = open(t_filename, 'w+')
     fp.write(str(traffic_results_ret))
     fp.close
+
+if __name__ == '__main__':
+    connect()
+    print filename, jobid, casename, log_path, device, port_list, phy_mode, burst_loop_count

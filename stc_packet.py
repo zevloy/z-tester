@@ -6,7 +6,6 @@ Created on Oct 2, 2018
 '''
 
 from scapy.all import *
-import xml.etree.ElementTree as ET
 from config import init_conf, get_stcPacket_conf
 
 
@@ -15,7 +14,7 @@ class StcPacket(Packet):
 
     name = "StcPacket"
 
-    init_conf("StcConf\case91_traffic_config.xml")
+    init_conf("StcConf/case91_p1_tx_traffic_config.xml")
     custom_pattern, signature_length, payload_length, custom_pattern_length, padding_length = get_stcPacket_conf()
 
     fields_desc = [StrField("StcSignature", '0'*signature_length, fmt="H"), StrField("StcPadding", '0'*padding_length, fmt="H"), StrField("CustomPattern", '1'*custom_pattern_length, fmt="H")]
