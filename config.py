@@ -5,8 +5,7 @@ Implementation of the configuration related job.
 Created on Oct 9, 2018
 @author: zevloy
 '''
-import re
-import mmap
+
 import logging
 
 try:

@@ -10,15 +10,17 @@ from scapy.all import *
 from config import init_conf, get_conf
 from iptools.ipv4 import ip2long, long2ip
 import logging
+import time, sys
 
 
 logging.basicConfig(level=logging.DEBUG,
-                format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
-                datefmt='%a, %d %b %Y %H:%M:%S',
-                filename='myapp.log',
-                filemode='w')
+                    format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
+                    datefmt='%a, %d %b %Y %H:%M:%S',
+                    filename='myapp.log',
+                    filemode='w')
 
-traffic_results_ret = {'status' : '0'}
+traffic_results_ret = {'status': '0'}
+
 
 def get_next_valid_ip(s):
     """ip=ip+1, omit x.x.x.0 and x.x.x.255,
@@ -43,20 +45,16 @@ def get_next_ip(s):
     return str(long2ip(ip2long(s) + 1))
 
 
-def send_stc_pkt(f="StcConf\case91_traffic_config.xml"):
-    """send packet according configuration file.
+def send_stc_pkt_ipv4(f):
+    """send ipv4 packets according configuration file.
 
     :param f: configuration file .
     :returns: None
     :raises: None
     """
-    #TODO:convert the IP option field from Stc to scapy format.
-    #ip_opt = 0
-    #TODO:convert the TCP option field from Stc to scapy format.
-    #tcp_opt = 0
 
-    init_conf(f)
     traffic_config = get_conf()
+    dst_ip_list = []
     #logging.info(traffic_config)
 
     #return a dictionary
@@ -85,15 +83,12 @@ def send_stc_pkt(f="StcConf\case91_traffic_config.xml"):
         p3.dst = traffic_config["ip_dst_addr"]
     if "ip_src_addr" in traffic_config:
         p3.src = traffic_config["ip_src_addr"]
-    if "l3_protocol" in traffic_config:
-        if traffic_config["l3_protocol"] == "ipv4":
-            p3.version == 4
-        elif traffic_config["l3_protocol"] == "ipv6":
-            p3.version == 6
-        else:
-            logging.error("layer 3 version must be 4 or 6")
+
+    #ip.version must be 4 in this function.
+    p3.version == 4
 
     #L4 packet construction using Stc traffic parameters in traffic_config
+    #TODO:tcp flags should be a int, such as p4.flag = 7 means "FSR"
     p4 = TCP()
     if "tcp_src_port" in traffic_config:
         p4.sport = int(traffic_config["tcp_src_port"])
@@ -112,35 +107,54 @@ def send_stc_pkt(f="StcConf\case91_traffic_config.xml"):
     if "tcp_urgent_ptr" in traffic_config:
         p4.urgptr = int(traffic_config["tcp_urgent_ptr"])
 
-    # Layer Beyond the TCP, StcPacket() should only use defaut input parameters since the StcPacket layer is created according to the *traffic_config.xml
+    # Layer Beyond the TCP, StcPacket() should only use defaut input parameters
+    #since the StcPacket layer is created according to the *traffic_config.xml
     p5 = StcPacket()
 
     p = p3/p4/p5
-    ls(p)
-    p.show()
 
     #TODO:should fetch burst_loop_count from *_p1_tx.py
-    burst_loop_count = 5
+    burst_loop_count = 1000
 
-    try:
-        dst_ip = traffic_config["ip_dst_addr"]
-        send(p)
+    dst_ip = traffic_config["ip_dst_addr"]
+    dst_ip_list.append(dst_ip)
 
-        for i in range(burst_loop_count - 1):
-            dst_ip = get_next_valid_ip(dst_ip)
-            p.dst = dst_ip
-            #send(p)
-    except Exception, e:
-        logging.error(e)
-    else:
-        traffic_results_ret['status': '1']
+    for i in range(burst_loop_count - 1):
+        dst_ip = get_next_valid_ip(dst_ip)
+        dst_ip_list.append(dst_ip)
+
+    p.dst = dst_ip_list
+    packetList = sendp(p, return_packets=True)
+    print packetList.summary()
+
+    traffic_results_ret['status'] = '1'
+
+
+def send_stc_pkt_ipv6(f):
+    pass
+
+
+def send_stc_pkt(f):
+    """check l3 protocol and call the send_stc_pkt_ipv4 or send_stc_pkt_ipv6 accordingly"""    
+
+    init_conf(f)
+    traffic_config = get_conf()
+
+    if "l3_protocol" in traffic_config:
+        if traffic_config["l3_protocol"] == "ipv4":
+            send_stc_pkt_ipv4(traffic_config)
+        elif traffic_config["l3_protocol"] == "ipv6":
+            send_stc_pkt_ipv6(traffic_config)
+        else:
+            logging.error("layer 3 version must be 4 or 6")
+            traffic_results_ret['status'] = '0'
 
 
 def traffic_stats(port_handle, mode):
     """check the stats after packet sent, suppose to be called after send_stc_pkt().
 
-    :param port_handle: Tester Center's port, just 
-    :param mode: negelected
+    :param port_handle: Tester Center's port, just negelected.
+    :param mode:
     :returns: traffic result, the 'status' is used to determin if the result of tranffic sending.
     :raises: None
     """
@@ -148,10 +162,22 @@ def traffic_stats(port_handle, mode):
 
 
 if __name__ == '__main__':
-    try:
-        send_stc_pkt()
-        logging.info("DONE")
-    except Exception, e:
-        print False
-    else:
-        print True
+
+    import cProfile
+    import pstats
+
+    pkt = IP()/TCP()
+    t0 = time.time()
+    rp = sendp(pkt, count=1000, loop=1, return_packets=True)
+    t1 = time.time()
+    print "send 1000 packets with loop parameters, %10.2f seconds." % (t1-t0)
+    print rp.summary()
+
+    t0 = time.time()
+    #use cProfile to evaluate the program's performance.
+    cProfile.run('''send_stc_pkt(f="StcConf/case91_p1_tx_traffic_config.xml")''', filename="result.out", sort="cumulative")
+    t1 = time.time()
+
+    p = pstats.Stats("result.out")
+    #p.strip_dirs().sort_stats(-1).print_stats()
+    p.strip_dirs().sort_stats("cumulative", "name").print_stats(0.5)
