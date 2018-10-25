@@ -170,9 +170,8 @@ def send_stc_pkt(f):
             traffic_results_ret['status'] = '0'
     #Layer Beyond the TCP, StcPacket() should only use defaut input parameters
     #since the StcPacket layer is created according to the *traffic_config.xml
+
     p5 = StcPacket()
-
-
 
     #TODO:should fetch burst_loop_count from *_p1_tx.py
     burst_loop_count = 1000
@@ -188,7 +187,7 @@ def send_stc_pkt(f):
 
     p = p2/p3/p4/p5
     packetList = sendp(p, return_packets=True)
-    print packetList.summary()
+    #print packetList.summary()
 
     traffic_results_ret['status'] = '1'
 
@@ -219,3 +218,21 @@ if __name__ == '__main__':
     p = pstats.Stats("result.out")
     #p.strip_dirs().sort_stats(-1).print_stats()
     p.strip_dirs().sort_stats("time", "name").print_stats()
+
+    
+    #TODO:should fetch burst_loop_count from *_p1_tx.py
+    burst_loop_count = 1000
+    dst_ip_list = []
+    dst_ip = "1.1.1.1"
+    dst_ip_list.append(dst_ip)
+
+    for i in range(burst_loop_count - 1):
+        dst_ip = get_next_valid_ip(dst_ip)
+        dst_ip_list.append(dst_ip)
+
+    t0 = time.time()
+    #use cProfile to evaluate the program's performance.
+    sendp(IP(dst=dst_ip_list, len=1500)/TCP())
+    t1 = time.time()
+
+    logging.info("send 1000 regular IP packets %10.2f seconds used." % (t1 - t0))

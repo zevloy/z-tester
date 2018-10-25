@@ -49,6 +49,9 @@ def get_conf():
 
 def get_stcPacket_conf():
     '''fetch the parameters used by stcPacket layer, such as "custom_pattern"'''
+
+    init_conf("StcConf/case91_p1_tx_traffic_config.xml")
+
     global traffic_config
 
     #TODO: Check why there is a \n left
