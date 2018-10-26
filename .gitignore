@@ -2,7 +2,7 @@
 *.pyo
 dist/
 build/
-StcConf/
+trex_client/
 MANIFEST
 *.egg-info/
 *.pdf
