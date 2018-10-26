@@ -5,8 +5,7 @@ Implementation of the configuration related job.
 Created on Oct 9, 2018
 @author: zevloy
 '''
-import re
-import mmap
+
 import logging
 
 try:
@@ -17,7 +16,7 @@ except ImportError:
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S',
-                    filename='myapp.log',
+                    filename='z-tester.log',
                     filemode='w'
                     )
 
@@ -50,6 +49,9 @@ def get_conf():
 
 def get_stcPacket_conf():
     '''fetch the parameters used by stcPacket layer, such as "custom_pattern"'''
+
+    init_conf("StcConf/case91_p1_tx_traffic_config.xml")
+
     global traffic_config
 
     #TODO: Check why there is a \n left

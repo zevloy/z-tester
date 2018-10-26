@@ -79,7 +79,7 @@ def z_tester(filename, jobid, casename, log_path, device, port_list, phy_mode, b
     temp_path = '../log/%s/TSC/%s_' % (jobid, casename)
 
     #send stc pkt
-    send_stc_pkt(f="StcConf/case91_traffic_config.xml")
+    send_stc_pkt(f="StcConf/case91_p1_tx_traffic_config")
 
     #get traffic sending result
     traffic_results_ret = traffic_stats(port_handle=[port_handle[0], port_handle[1]], mode='all')

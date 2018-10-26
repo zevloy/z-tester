@@ -14,10 +14,10 @@ class StcPacket(Packet):
 
     name = "StcPacket"
 
-    init_conf("StcConf/case91_p1_tx_traffic_config.xml")
+    #init_conf("StcConf/case91_p1_tx_traffic_config.xml")
     custom_pattern, signature_length, payload_length, custom_pattern_length, padding_length = get_stcPacket_conf()
-
-    fields_desc = [StrField("StcSignature", '0'*signature_length, fmt="H"), StrField("StcPadding", '0'*padding_length, fmt="H"), StrField("CustomPattern", '1'*custom_pattern_length, fmt="H")]
+    fields_desc = [StrField("sig", '0'*signature_length, fmt="H"), StrField("padding", '0'*padding_length, fmt="H"), StrField("customPattern", '1'*custom_pattern_length, fmt="H")]
+    #fields_desc = [StrLenField("sig", "", "len"), StrLenField("padding", "", "len"), StrLenField("custom_pattern", "1", "len")]
 
     def guess_payload_class(self, payload):
         ''' Decides if the payload contain the Custom pattern'''
@@ -29,17 +29,17 @@ class StcPacket(Packet):
     def do_dissect(self, s):
         ''' From the Stc packet string, populate the scapy object '''
 
-        self.setfieldval('StcSignature', s[0:self.signature_length])
-        self.setfieldval('StcPadding', s[self.signature_length:(self.signature_length+self.padding_length)])
-        self.setfieldval('CustomPattern', s[(self.signature_length+self.padding_length):self.payload_length])
+        self.setfieldval('sig', s[0:self.signature_length])
+        self.setfieldval('padding', s[self.signature_length:(self.signature_length+self.padding_length)])
+        self.setfieldval('customPattern', s[(self.signature_length+self.padding_length):self.payload_length])
         return s
 
     def self_build(self, field_pos_list=None):
-        ''' Generate the HTTP packet string (the opposite of do_dissect) '''
+        ''' Generate the stc packet string (the opposite of do_dissect) '''
         p = ""
         for f in self.fields_desc:
             # Additional fields added for user-friendliness should be ignored
-            if f.name not in ['StcSignature', 'StcPadding', 'CustomPattern']:
+            if f.name not in ['sig', 'padding', 'customPattern']:
                 continue
             # Get the field value
             val = self.getfieldval(f.name)
@@ -48,11 +48,18 @@ class StcPacket(Packet):
         return p
 
 if __name__ == '__main__':
-    #p = IP()/TCP()/StcPacket(StcSignature="1234567890"*2, StcPadding="0"*1264, CustomPattern="1"*176)
-    p = IP()/TCP()/StcPacket()
+
+
+    custom_pattern, signature_length, payload_length, custom_pattern_length, padding_length = get_stcPacket_conf()
+    #p5 = StcPacket(sig="1"*signature_length, padding="0"*padding_length, custom_pattern="1"*custom_pattern_length)
+    p5 = StcPacket()
+    p = IP()/TCP()/p5
     send(p)
     #print hexdump(p)
-    ls(p)
+    ls(p5)
     #print p.StcSignature
     #print p.StcPadding
     #print p.CustomPattern
+    print StcPacket.__dict__
+    #print p5.fields_desc[0].length_from
+    #a = StrLenField("sig", "", "len")
