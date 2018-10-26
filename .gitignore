@@ -1,0 +1,12 @@
+*.pyc
+*.pyo
+dist/
+build/
+trex_client/
+MANIFEST
+*.egg-info/
+*.pdf
+*.doc
+*.pcap
+*.cap
+*.log
