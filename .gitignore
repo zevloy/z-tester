@@ -2,6 +2,7 @@
 *.pyo
 dist/
 build/
+examples/
 trex_client/
 MANIFEST
 *.egg-info/
@@ -10,3 +11,4 @@ MANIFEST
 *.pcap
 *.cap
 *.log
+*.out
