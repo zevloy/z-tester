@@ -20,8 +20,6 @@ logging.basicConfig(level=logging.DEBUG,
                     filename='z-tester.log',
                     filemode='w')
 
-traffic_results_ret = {'status': '0'}
-
 
 def get_next_valid_ip(s):
     """ip=ip+1, omit x.x.x.0 and x.x.x.255,
@@ -148,8 +146,6 @@ def send_stc_pkt(f):
     traffic_config = get_conf()
     dst_ip_list = []
 
-    global traffic_results_ret
-
     p2 = build_stc_eth()
 
     if "l3_protocol" in traffic_config:
@@ -190,11 +186,9 @@ def send_stc_pkt(f):
     packetList = sendp(p, return_packets=True)
     #print packetList.summary()
 
-    traffic_results_ret['status'] = '1'
-
 
 def simple_burst(port_a, port_b, burst_size, rate, f):
-    """send ipv4 packets according configuration file.
+    """send packets according configuration file, using Cisco TRex.
 
     :param f: configuration file .
     :returns: None
@@ -210,7 +204,6 @@ def simple_burst(port_a, port_b, burst_size, rate, f):
     traffic_config = get_conf()
     dst_ip_list = []
 
-    global traffic_results_ret
 
     #p2 = build_stc_eth()
     p2 = Ether()
@@ -238,11 +231,10 @@ def simple_burst(port_a, port_b, burst_size, rate, f):
     p5 = StcPacket()
 
     p = p2/p3/p4/p5
-    print ls(p)
 
     try:
         pkt = STLPktBuilder(pkt=p)
-        print pkt
+        
         #pkt.dump_pkt_to_pcap("test.pcap")
 
         # create a single bursts and link them
@@ -266,40 +258,25 @@ def simple_burst(port_a, port_b, burst_size, rate, f):
         stats = c.get_stats()
         ipackets  = stats['total']['ipackets']
 
-        print("Packets Received: ", ipackets)
+        logging.info("Packets Received: %s" % ipackets)
 
         
     except STLError as e:
         passed = False
-        print(e)
+        logging.error(e)
 
     finally:
         c.disconnect()
     
     if c.get_warnings():
-            print("\n\n*** test had warnings ****\n\n")
+            logging.error("\n\n*** test had warnings ****\n\n")
             for w in c.get_warnings():
-                print(w)
+                logging.warning(w)
 
     if passed and not c.get_warnings():
-        print("\nTest has passed :-)\n")
+        logging.info("\nTest has passed :-)\n")
     else:
-        print("\nTest has failed :-(\n")
-
-
-
-
-
-
-def traffic_stats(port_handle, mode):
-    """check the stats after packet sent, suppose to be called after send_stc_pkt().
-
-    :param port_handle: Tester Center's port, just negelected.
-    :param mode:
-    :returns: traffic result, the 'status' is used to determin if the tranffic sending successs.
-    :raises: None
-    """
-    return traffic_results_ret
+        logging.info("\nTest has failed :-(\n")
 
 
 if __name__ == '__main__':
@@ -312,5 +289,5 @@ if __name__ == '__main__':
     simple_burst (0, 1, 8217440, '812744pps', f="config/case91_p1_tx_traffic_config.xml")
     t1 = time.time()
 
-    logging.info("send 1000 packets with dst ip list, %10.2f seconds used." % (t1 - t0))
+    logging.info("send packets using TRex, %10.2f seconds used." % (t1 - t0))
 
