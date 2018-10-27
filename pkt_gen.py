@@ -11,6 +11,7 @@ from config import init_conf, get_conf
 from iptools.ipv4 import ip2long, long2ip
 import logging
 import time
+from trex_stl_lib.api import *
 
 
 logging.basicConfig(level=logging.DEBUG,
@@ -192,6 +193,104 @@ def send_stc_pkt(f):
     traffic_results_ret['status'] = '1'
 
 
+def simple_burst(port_a, port_b, burst_size, rate, f):
+    """send ipv4 packets according configuration file.
+
+    :param f: configuration file .
+    :returns: None
+    :raises: None
+    """
+
+    # create client
+    c = STLClient()
+    passed = True
+
+
+    init_conf(f)
+    traffic_config = get_conf()
+    dst_ip_list = []
+
+    global traffic_results_ret
+
+    #p2 = build_stc_eth()
+    p2 = Ether()
+
+    if "l3_protocol" in traffic_config:
+        if traffic_config["l3_protocol"] == "ipv4":
+            p3 = build_stc_ipv4()
+        elif traffic_config["l3_protocol"] == "ipv6":
+            p3 = build_stc_ipv6()
+        else:
+            logging.error("layer 3 version must be 4 or 6")
+            traffic_results_ret['status'] = '0'
+
+    if "ip_protocol" in traffic_config:
+        if traffic_config["ip_protocol"] == '6':
+            p4 = build_stc_tcp()
+        elif traffic_config["ip_protocol"] == '17':
+            p4 = build_stc_udp()
+        else:
+            logging.error("layer 4 version must be 6 or 17")
+            traffic_results_ret['status'] = '0'
+    #Layer Beyond the TCP, StcPacket() should only use defaut input parameters
+    #since the StcPacket layer is created according to the *traffic_config.xml
+
+    p5 = StcPacket()
+
+    p = p2/p3/p4/p5
+    print ls(p)
+
+    try:
+        pkt = STLPktBuilder(pkt=p)
+        print pkt
+        #pkt.dump_pkt_to_pcap("test.pcap")
+
+        # create a single bursts and link them
+        s1 = STLStream(name = 'A',
+                       packet = pkt,
+                       mode = STLTXSingleBurst(total_pkts = burst_size),
+                       )
+
+        # connect to server
+        c.connect()
+
+        # prepare our ports
+        c.reset(ports = [port_a, port_b])
+
+        # add both streams to ports
+        stream_ids = c.add_streams([s1], ports = [port_a])
+        c.clear_stats()
+        c.start(ports = [port_a], mult = rate)
+        c.wait_on_traffic(ports = [port_a, port_b])
+
+        stats = c.get_stats()
+        ipackets  = stats['total']['ipackets']
+
+        print("Packets Received: ", ipackets)
+
+        
+    except STLError as e:
+        passed = False
+        print(e)
+
+    finally:
+        c.disconnect()
+    
+    if c.get_warnings():
+            print("\n\n*** test had warnings ****\n\n")
+            for w in c.get_warnings():
+                print(w)
+
+    if passed and not c.get_warnings():
+        print("\nTest has passed :-)\n")
+    else:
+        print("\nTest has failed :-(\n")
+
+
+
+
+
+
 def traffic_stats(port_handle, mode):
     """check the stats after packet sent, suppose to be called after send_stc_pkt().
 
@@ -209,30 +308,9 @@ if __name__ == '__main__':
     import pstats
 
     t0 = time.time()
-    #use cProfile to evaluate the program's performance.
-    cProfile.run('''send_stc_pkt(f="StcConf/case91_p1_tx_traffic_config.xml")''', filename="result.out", sort="cumulative")
+    
+    simple_burst (0, 1, 8217440, '812744pps', f="config/case91_p1_tx_traffic_config.xml")
     t1 = time.time()
 
     logging.info("send 1000 packets with dst ip list, %10.2f seconds used." % (t1 - t0))
 
-    p = pstats.Stats("result.out")
-    #p.strip_dirs().sort_stats(-1).print_stats()
-    p.strip_dirs().sort_stats("time", "name").print_stats()
-
-    
-    #TODO:should fetch burst_loop_count from *_p1_tx.py
-    burst_loop_count = 1000
-    dst_ip_list = []
-    dst_ip = "1.1.1.1"
-    dst_ip_list.append(dst_ip)
-
-    for i in range(burst_loop_count - 1):
-        dst_ip = get_next_valid_ip(dst_ip)
-        dst_ip_list.append(dst_ip)
-
-    t0 = time.time()
-    #use cProfile to evaluate the program's performance.
-    sendp(IP(dst=dst_ip_list, len=1500)/TCP())
-    t1 = time.time()
-
-    logging.info("send 1000 regular IP packets %10.2f seconds used." % (t1 - t0))
