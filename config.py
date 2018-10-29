@@ -36,10 +36,17 @@ def _etree_to_dict(t):
 
 def init_conf(filename):
     '''Take out the parameters from a configuration file such case91_traffic_config.xml '''
+    
     global traffic_config
-    #use ET to parse a parameter xml file
-    tree = ET.parse(filename)
-    #build a traffic config dictionary
+    
+    try:
+        #use ET to parse a parameter xml file
+        tree = ET.parse(filename)
+        #build a traffic config dictionary
+    except Exception as e:
+        logging.error(e)
+        logging.error("Error: cannot parse file {%s}." % filename)
+
     traffic_config = _etree_to_dict(tree)
 
 

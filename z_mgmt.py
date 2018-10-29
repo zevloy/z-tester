@@ -1,20 +1,28 @@
-# -*- coding: UTF-8 -*-s
-'''
-Implementation of the z-tester management related job.
 
-Created on Oct 16, 2018
+'''
+Running the test in this script, called by Intelligent Tester Directly.
+
+############################################## Calling Method ##################################################
+# python D:\cc\Client\documents\projectcase\sxf656879\G_rule-matching_10_91\6/case91_p1_tx.py
+# 2099 6_2018-09-03_18-22-07 :D\cc\Client\documents\projectcase\sxf656879\G_rule-matching_10_91\\log\2099\TSC\
+# 10.240.20.228 "[0, 1]" Fiber 10000
+# python z_mgmt.py 2099 6_2018-09-03_18-22-07 ./log/2099/TSC/ 127.0.0.1 "[0,1]" Fiber 10000
+############################################## Calling Method ##################################################
+
+Created on Oct 29, 2018
 @author: zevloy
 '''
 
 import paramiko
 from sys import argv
-from pkt_gen import send_stc_pkt, traffic_stats
-
+#from scapy.all import *  # MUST use the scapy lib provided by Trex.
+from trex_stl_lib.api import *
+from StcStream import StcStlStream
 
 filename, jobid, casename, log_path, device, port_list, phy_mode, burst_loop_count = argv
 
 
-def run_pkt_gen():
+def start_ssh_server():
     # # create a instance of Transport
     trans = paramiko.Transport(("127.0.0.1", 22))
     # make connection
@@ -47,7 +55,7 @@ def fetch_log():
     trans.close()
 
 
-def connect():
+def connect_ssh_server():
     # # create a instance of Transport
     trans = paramiko.Transport(("127.0.0.1", 22))
     # make connection
@@ -66,37 +74,63 @@ def connect():
     # close the connection
     trans.close()
 
+# it is the IP of Spirent Test Center or the IP of packet generator.
+dev = device
+# the Tester's ports being used, "[0, 1]"
+port_a, port_b = eval(port_list)
 
-def z_tester(filename, jobid, casename, log_path, device, port_list, phy_mode, burst_loop_count):
-    #it is the IP of Spirent Test Center or the IP of packet generator.
-    dev = device
-    #the Tester's ports being used
-    port_list = eval(port_list)
+# the directory for the log
+log_path = log_path + "/" + casename + "_"
+temp_path = '../log/%s/TSC/%s_' % (jobid, casename)
 
-    port_handle = []
-    #the directory for the log
-    log_path = log_path + "/" + casename + "_"
-    temp_path = '../log/%s/TSC/%s_' % (jobid, casename)
+# create STLClient
+c = STLClient()
+passed = True
 
-    #send stc pkt
-    send_stc_pkt(f="StcConf/case91_p1_tx_traffic_config")
+try:
+    s = StcStlStream("case91", burst_loop_count, f="config/case91_p1_tx_traffic_config.xml")
+    s1 = s.get_streams()
+    # connect to server
+    c.connect()
 
-    #get traffic sending result
-    traffic_results_ret = traffic_stats(port_handle=[port_handle[0], port_handle[1]], mode='all')
+    # prepare our ports
+    c.reset(ports=[port_a])
 
-    status = traffic_results_ret['status']
-    if (status == '0'):
-        print("run sth.traffic_stats failed")
-        print(traffic_results_ret)
-    else:
-        print("***** run sth.traffic_stats successfully, and results is:")
-        print(traffic_results_ret)
+    # add both streams to ports
+    stream_ids = c.add_streams(s1, ports=[port_a])
+    c.clear_stats()
+    c.start(ports=[port_a], mult="10pps", duration=100)
+    c.wait_on_traffic(ports=[port_a])
 
-    t_filename = log_path + 'traffic_all.txt'
-    fp = open(t_filename, 'w+')
-    fp.write(str(traffic_results_ret))
+    stats = c.get_stats([port_a, port_b])
+
+    # write stats into a file
+    traffic_log_name = log_path + 'traffic_all.txt'
+    fp = open(traffic_log_name, 'w+')
+    fp.write(str(stats))
     fp.close
 
-if __name__ == '__main__':
-    connect()
-    print filename, jobid, casename, log_path, device, port_list, phy_mode, burst_loop_count
+    # select input packets count
+    ipackets = stats['total']['ipackets']
+    print("Packets Received: ", ipackets)
+
+except STLError as e:
+    passed = False
+    print(e)
+
+except IOError as e:
+    print(e)
+
+finally:
+    c.disconnect()
+
+if c.get_warnings():
+        print("\n\n*** test had warnings ****\n\n")
+        for w in c.get_warnings():
+            print(w)
+
+if passed and not c.get_warnings():
+    print("\nTest has passed :-)\n")
+else:
+    print("\nTest has failed :-(\n")
+

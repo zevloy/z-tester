@@ -5,9 +5,9 @@ Created on Oct 2, 2018
 @author: zevloy
 '''
 
-from scapy.all import *
+#from scapy.all import *
 from config import init_conf, get_stcPacket_conf
-
+from trex_stl_lib.api import *
 
 class StcPacket(Packet):
     """define a sprirent test center kind of Packet Class"""

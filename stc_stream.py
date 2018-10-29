@@ -10,7 +10,7 @@ from config import init_conf, get_conf
 from iptools.ipv4 import ip2long, long2ip
 import logging
 import time
-from scapy.all import *
+#from scapy.all import *
 from trex_stl_lib.api import *
 
 
@@ -22,6 +22,7 @@ logging.basicConfig(level=logging.DEBUG,
 
 
 class StcStlStream(object):
+    '''building streams according the configuration file'''
 
     def __init__(self, case_name, burst_loop_count, stream_config_file):
         self.case_name = case_name
@@ -176,18 +177,24 @@ class StcStlStream(object):
         p5 = StcPacket()
 
         base_pkt = p2/p3/p4/p5
+        ls(base_pkt)
+        print self.burst_loop_count
+        print self.get_ip_list()
+
 
         vm = STLScVmRaw([STLVmFlowVar("ip_dst", value_list=self.get_ip_list(), op="inc"),
-                         #STLVmWrFlowVar(fv_name="ip_dst", pkt_offset="IP.dst"),  # write ip to packet IP.src
-                         #STLVmFixIpv4(offset="IP")  # fix checksum
+                         #STLVmFlowVar ( "ip_dst", min_value="10.0.0.1", max_value="10.0.0.255", size=4, step=1, op="inc"),
+                         STLVmWrFlowVar(fv_name="ip_dst", pkt_offset="IP.dst"),  # write ip to packet IP.src
+                         STLVmFixIpv4(offset="IP")  # fix checksum
                          ],
                         #split_by_field="ip_dst",
                         cache_size=self.burst_loop_count  # cache the packets, much better performance
                         )
 
         pkt = STLPktBuilder(pkt=base_pkt, vm=vm)
-        stream = STLStream(packet=pkt, mode=STLTXSingleBurst(self.burst_loop_count))
+        stream = STLStream(packet=pkt, mode=STLTXCont())
         #print(stream.to_code())
+
         return stream
 
     def get_streams(self, direction=0, **kwargs):
@@ -219,10 +226,15 @@ def simple_burst(port_a, port_b, burst_size, rate, f):
         # add both streams to ports
         stream_ids = c.add_streams(s1, ports=[port_a])
         c.clear_stats()
-        c.start(ports=[port_a], mult=rate)
-        c.wait_on_traffic(ports=[port_a, port_b])
+        c.start(ports=[port_a], mult=rate, duration=10)
+        c.wait_on_traffic(ports=[port_a], rx_delay_ms=1000)
 
         stats = c.get_stats()
+        print stats
+
+        print c.get_active_pgids()
+        print c.get_pgid_stats()
+
         ipackets = stats['total']['ipackets']
 
         print("Packets Received: ", ipackets)
@@ -248,7 +260,7 @@ def simple_burst(port_a, port_b, burst_size, rate, f):
 if __name__ == '__main__':
 
     t0 = time.time()
-    simple_burst(0, 1, 1000, '812744pps', f="config/case91_p1_tx_traffic_config.xml")
+    simple_burst(0, 1, 1000, '10pps', f="config/case91_p1_tx_traffic_config.xml")
     t1 = time.time()
 
     logging.info("send 1000 packets with dst ip list, %10.2f seconds used." % (t1 - t0))
