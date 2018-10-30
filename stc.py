@@ -1,4 +1,4 @@
-# _*_ coding: UTF-8 -*-s
+
 '''
 Created on Oct 2, 2018
 
@@ -9,10 +9,11 @@ Created on Oct 2, 2018
 from config import init_conf, get_stcPacket_conf
 from trex_stl_lib.api import *
 
-class StcPacket(Packet):
-    """define a sprirent test center kind of Packet Class"""
 
-    name = "StcPacket"
+class STC(Packet):
+    """define a sprirent test center kind of Packet Layer Class"""
+
+    name = "STC"
 
     #init_conf("StcConf/case91_p1_tx_traffic_config.xml")
     custom_pattern, signature_length, payload_length, custom_pattern_length, padding_length = get_stcPacket_conf()
@@ -22,12 +23,12 @@ class StcPacket(Packet):
     def guess_payload_class(self, payload):
         ''' Decides if the payload contain the Custom pattern'''
         if payload.endswith(self.custom_pattern):
-            return StcPacket
+            return STC
         else:
             return Packet.guess_payload_class(self, payload)
 
     def do_dissect(self, s):
-        ''' From the Stc packet string, populate the scapy object '''
+        ''' From the STC packet layer string, populate the scapy object '''
 
         self.setfieldval('sig', s[0:self.signature_length])
         self.setfieldval('padding', s[self.signature_length:(self.signature_length+self.padding_length)])
@@ -49,10 +50,9 @@ class StcPacket(Packet):
 
 if __name__ == '__main__':
 
-
     custom_pattern, signature_length, payload_length, custom_pattern_length, padding_length = get_stcPacket_conf()
-    #p5 = StcPacket(sig="1"*signature_length, padding="0"*padding_length, custom_pattern="1"*custom_pattern_length)
-    p5 = StcPacket()
+    #p5 = STC(sig="1"*signature_length, padding="0"*padding_length, custom_pattern="1"*custom_pattern_length)
+    p5 = STC()
     p = IP()/TCP()/p5
     send(p)
     #print hexdump(p)
@@ -60,6 +60,7 @@ if __name__ == '__main__':
     #print p.StcSignature
     #print p.StcPadding
     #print p.CustomPattern
-    print StcPacket.__dict__
+    print STC.__dict__
     #print p5.fields_desc[0].length_from
     #a = StrLenField("sig", "", "len")
+
