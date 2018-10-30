@@ -5,7 +5,7 @@ Created on Oct 28, 2018
 @author: zevloy
 '''
 
-from stc_packet import StcPacket
+from stc import STC
 from config import init_conf, get_conf
 from iptools.ipv4 import ip2long, long2ip
 import logging
@@ -21,13 +21,16 @@ logging.basicConfig(level=logging.DEBUG,
                     filemode='w')
 
 
-class StcStlStream(object):
+class StcStlStreamFactory(object):
     '''building streams according the configuration file'''
 
     def __init__(self, case_name, burst_loop_count, stream_config_file):
         self.case_name = case_name
         self.burst_loop_count = burst_loop_count
         self.stream_config_file = stream_config_file
+        self.pg_id = 1
+        self.num_streams = 1
+        self.pkt_type = "case91"  # TODO:suppose to be a common pkt_type
 
         try:
             init_conf(stream_config_file)
@@ -46,7 +49,7 @@ class StcStlStream(object):
         """
         b = str(long2ip(ip2long(s) + 1))
         if b.split('.')[3] == "0" or b.split('.')[3] == "255":
-            b = StcStlStream.get_next_valid_ip(b)
+            b = StcStlStreamFactory.get_next_valid_ip(b)
         return b
 
     @staticmethod
@@ -67,7 +70,7 @@ class StcStlStream(object):
         dst_ip_list.append(dst_ip)
 
         for i in range(self.burst_loop_count - 1):
-            dst_ip = StcStlStream.get_next_valid_ip(dst_ip)
+            dst_ip = StcStlStreamFactory.get_next_valid_ip(dst_ip)
             dst_ip_list.append(dst_ip)
 
         return dst_ip_list
@@ -151,7 +154,7 @@ class StcStlStream(object):
         p4 = UDP()
         return p4
 
-    def create_stream(self):
+    def _create_stream(self):
         '''create a stl stream base on scapy packet template'''
 
         p2 = Ether()
@@ -172,14 +175,15 @@ class StcStlStream(object):
             else:
                 logging.error("layer 4 version must be 6 or 17")
 
-        #Layer Beyond the TCP, StcPacket() should only use defaut input parameters
+        #Layer Beyond the TCP, STC should only use defaut input parameters
         #since the StcPacket layer is created according to the *traffic_config.xml
-        p5 = StcPacket()
+        p5 = STC()
 
         base_pkt = p2/p3/p4/p5
         ls(base_pkt)
-        print self.burst_loop_count
-        print self.get_ip_list()
+
+        #print "self.burst_loop_count", self.burst_loop_count
+        #print "self.get_ip_list()", self.get_ip_list()
 
 
         vm = STLScVmRaw([STLVmFlowVar("ip_dst", value_list=self.get_ip_list(), op="inc"),
@@ -192,15 +196,18 @@ class StcStlStream(object):
                         )
 
         pkt = STLPktBuilder(pkt=base_pkt, vm=vm)
-        stream = STLStream(packet=pkt, mode=STLTXCont())
+        streams = []
+        streams.append(STLStream(packet=pkt, mode=STLTXSingleBurst(pps=1000, total_pkts=1000), flow_stats = STLFlowStats(self.pg_id)))
+        streams.append(STLStream(packet=pkt, mode=STLTXCont()))
         #print(stream.to_code())
 
-        return stream
+        return streams
 
-    def get_streams(self, direction=0, **kwargs):
-        # create 1 stream
-        return [self.create_stream()]
-
+    def get_streams (self, pg_id = 1, pkt_type = "case91", num_streams = 1, **kwargs):
+        self.pg_id = pg_id
+        self.pkt_type = pkt_type
+        self.num_streams = num_streams
+        return self._create_stream()
 
 def simple_burst(port_a, port_b, burst_size, rate, f):
     """send ipv4 packets according configuration file.
@@ -215,8 +222,8 @@ def simple_burst(port_a, port_b, burst_size, rate, f):
     passed = True
 
     try:
-        s = StcStlStream("case91", burst_size, f)
-        s1 = s.get_streams()
+        sssf = StcStlStreamFactory("case91", burst_size, f)
+        s1 = sssf.get_streams(gp_id=1, pkt_type="case91", num_streams=1)
         # connect to server
         c.connect()
 
@@ -226,7 +233,7 @@ def simple_burst(port_a, port_b, burst_size, rate, f):
         # add both streams to ports
         stream_ids = c.add_streams(s1, ports=[port_a])
         c.clear_stats()
-        c.start(ports=[port_a], mult=rate, duration=10)
+        c.start(ports=[port_a], mult=rate, duration=5)
         c.wait_on_traffic(ports=[port_a], rx_delay_ms=1000)
 
         stats = c.get_stats()
@@ -260,7 +267,7 @@ def simple_burst(port_a, port_b, burst_size, rate, f):
 if __name__ == '__main__':
 
     t0 = time.time()
-    simple_burst(0, 1, 1000, '10pps', f="config/case91_p1_tx_traffic_config.xml")
+    simple_burst(0, 1, 1000, '10%', f="config/case91_p1_tx_traffic_config.xml")
     t1 = time.time()
 
     logging.info("send 1000 packets with dst ip list, %10.2f seconds used." % (t1 - t0))

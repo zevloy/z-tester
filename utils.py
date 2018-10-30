@@ -64,10 +64,16 @@ def make_traffic_config_xml(fname):
 
     traffic_config = {}
 
-    #file mode must be 'r' incase mess the case91_p1_tx.py up
-    f1 = file(fname, "r")
-    data = f1.read()
-    f1.close()
+    try:
+        #file mode must be 'r' incase mess the case91_p1_tx.py up
+        f1 = file(fname, "r")
+        data = f1.read()
+        f1.close()
+    except Exception as e:
+        print e
+        print "cannot open {%s}." % fname
+    finally:
+        f1.close()
 
     root = ET.Element("traffic_config")
 
