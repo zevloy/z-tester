@@ -12,57 +12,14 @@ import logging
 from trex_stl_lib.api import *
 
 
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
-                    datefmt='%a, %d %b %Y %H:%M:%S',
-                    filename='z-tester.log',
-                    filemode='w')
-
-
 class STCPacketsFactory(object):
     '''a factory to build Spirent Test Center packets according the traffic config file'''
 
     def __init__(self):
         self.case_name = ""
         self.num_packets = 1
-        self.traffic_config_file = ""
         self.traffic_config = {}
 
-    @staticmethod
-    def get_next_valid_ip(s):
-        """ip=ip+1, omit x.x.x.0 and x.x.x.255,
-
-        :param s: string type of ip .
-        :returns: string type of ip+1
-        :raises:
-        """
-        b = str(long2ip(ip2long(s) + 1))
-        if b.split('.')[3] == "0" or b.split('.')[3] == "255":
-            b = StcStlStreamFactory.get_next_valid_ip(b)
-        return b
-
-    @staticmethod
-    def get_next_ip(s):
-        """ip=ip+1, include x.x.x.0 and x.x.x.255,
-
-        :param s: string type of ip .
-        :returns: ip+1
-        :raises:
-        """
-        return str(long2ip(ip2long(s) + 1))
-
-    def get_ip_list(self):
-        '''create ip address list increase by 1, without invalid ip such as .0 or .255'''
-
-        dst_ip_list = []
-        dst_ip = self.traffic_config["ip_dst_addr"]
-        dst_ip_list.append(dst_ip)
-
-        for i in range(self.burst_loop_count - 1):
-            dst_ip = StcStlStreamFactory.get_next_valid_ip(dst_ip)
-            dst_ip_list.append(dst_ip)
-
-        return dst_ip_list
 
     def build_stc_eth(self):
         p2 = Ether()
@@ -145,7 +102,7 @@ class STCPacketsFactory(object):
     def _create_stc_packets(self):
         '''create a stl stream base on scapy packet template'''
 
-        p2 = Ether()
+        p2 = self.build_stc_eth()
 
         if "l3_protocol" in self.traffic_config:
             if self.traffic_config["l3_protocol"] == "ipv4":
@@ -165,24 +122,21 @@ class STCPacketsFactory(object):
 
         #Layer Beyond the TCP, STC() should only use defaut input parameters
         #since the STC layer is created according to the *traffic_config.xml
-        p5 = STC()
+        if self.case_name in ["case91"]:
+            p5 = STC()
+        elif self.case_name in ["case35"]:
+            signature = 20*'1'
+            p5 = signature + (p3.len - 60)*'0'
 
         p = p2/p3/p4/p5
         base_pkts = []
         base_pkts.append(p)
         return base_pkts
 
-    def get_stc_packets(self, case_name="case91", traffic_config_file="config/case91_p1_tx_traffic_config.xml", num_packets=1, **kwargs):
+    def get_stc_packets(self, traffic_config, case_name="case91", num_packets=1, **kwargs):
         self.case_name = case_name
         self.num_packets = num_packets
-        self.traffic_config_file = traffic_config_file
-
-        try:
-            init_conf(traffic_config_file)
-            self.traffic_config = get_conf()
-        except IOError as e:
-            print "Error: fail to read traffic config file."
-            print e
+        self.traffic_config = traffic_config
 
         return self._create_stc_packets()
 

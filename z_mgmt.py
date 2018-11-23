@@ -20,7 +20,7 @@ from trex_stl_lib.api import *
 from StcStream import StcStlStream
 
 filename, jobid, casename, log_path, device, port_list, phy_mode, burst_loop_count = argv
-
+print "file name is: %s" % filename
 
 def start_ssh_server():
     # # create a instance of Transport
@@ -82,55 +82,4 @@ port_a, port_b = eval(port_list)
 # the directory for the log
 log_path = log_path + "/" + casename + "_"
 temp_path = '../log/%s/TSC/%s_' % (jobid, casename)
-
-# create STLClient
-c = STLClient()
-passed = True
-
-try:
-    s = StcStlStream("case91", burst_loop_count, f="config/case91_p1_tx_traffic_config.xml")
-    s1 = s.get_streams()
-    # connect to server
-    c.connect()
-
-    # prepare our ports
-    c.reset(ports=[port_a])
-
-    # add both streams to ports
-    stream_ids = c.add_streams(s1, ports=[port_a])
-    c.clear_stats()
-    c.start(ports=[port_a], mult="10pps", duration=100)
-    c.wait_on_traffic(ports=[port_a])
-
-    stats = c.get_stats([port_a, port_b])
-
-    # write stats into a file
-    traffic_log_name = log_path + 'traffic_all.txt'
-    fp = open(traffic_log_name, 'w+')
-    fp.write(str(stats))
-    fp.close
-
-    # select input packets count
-    ipackets = stats['total']['ipackets']
-    print("Packets Received: ", ipackets)
-
-except STLError as e:
-    passed = False
-    print(e)
-
-except IOError as e:
-    print(e)
-
-finally:
-    c.disconnect()
-
-if c.get_warnings():
-        print("\n\n*** test had warnings ****\n\n")
-        for w in c.get_warnings():
-            print(w)
-
-if passed and not c.get_warnings():
-    print("\nTest has passed :-)\n")
-else:
-    print("\nTest has failed :-(\n")
 

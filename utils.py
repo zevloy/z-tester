@@ -52,7 +52,7 @@ def make_interface_config_xml(fname):
         ET.SubElement(interface_config_xml, name).text = value
 
     tree = ET.ElementTree(interface_config_xml)
-    f_interface_config_name = "StcConf/" + os.path.basename(fname).split(".")[0] + "_interface_config" + ".xml"
+    f_interface_config_name = "config/" + os.path.basename(fname).split(".")[0] + "_interface_config" + ".xml"
     f_xml = file(f_interface_config_name, 'w')
 
     tree.write(f_xml,  encoding="UTF-8", xml_declaration="traffic configuration file", method="xml")
@@ -104,6 +104,7 @@ def make_traffic_config_xml(fname):
     ip = ET.SubElement(root, "ip_layer")
     tcp = ET.SubElement(root, "tcp_layer")
     stc = ET.SubElement(root, "stc_layer")
+    stream = ET.SubElement(root, "stream")
     other = ET.SubElement(root, "other")
 
     #take out key-value pair from dictionary and make it a xml file, xml file should be categorized into different parts.
@@ -116,12 +117,14 @@ def make_traffic_config_xml(fname):
             ET.SubElement(tcp, name).text = value
         elif name in ["custom_pattern", "disable_signature", "fill_value"]:
             ET.SubElement(stc, name).text = value
+        elif name in ["ip_src_repeat_count", "ip_src_count", "ip_src_step", "ip_src_mode", "ip_dst_repeat_count", "ip_dst_count", "ip_dst_step", "ip_dst_mode", "tcp_src_port_count", "tcp_src_port_mode", "tcp_src_port_repeat_count", "tcp_src_port_step", "tcp_dst_port_step", "tcp_dst_port_repeat_count", "tcp_dst_port_mode", "tcp_dst_port_count"]:
+            ET.SubElement(stream, name).text = value    
         else:
             ET.SubElement(other, name).text = value
 
     tree = ET.ElementTree(root)
 
-    f_traffic_config_name = "StcConf/" + os.path.basename(fname).split(".")[0] + "_traffic_config" + ".xml"
+    f_traffic_config_name = "config/" + os.path.basename(fname).split(".")[0] + "_traffic_config" + ".xml"
     f_xml = file(f_traffic_config_name, 'w')
     tree.write(f_xml, encoding="UTF-8", xml_declaration="traffic configuration file", method="xml")
     f_xml.close()
@@ -148,4 +151,4 @@ def make_all_config_file(path, word):
 if __name__ == '__main__':
     #make_traffic_config_xml()
     #make_interface_config_xml()
-    make_all_config_file("d:/test", "p1_tx.py")
+    make_all_config_file("c:/test", "case35.py")

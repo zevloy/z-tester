@@ -57,9 +57,7 @@ if __name__ == '__main__':
     send(p)
     #print hexdump(p)
     ls(p5)
-    #print p.StcSignature
-    #print p.StcPadding
-    #print p.CustomPattern
+
     print STC.__dict__
     #print p5.fields_desc[0].length_from
     #a = StrLenField("sig", "", "len")
