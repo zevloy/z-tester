@@ -38,7 +38,7 @@ class STCPacketsFactory(object):
 
         p3 = IP()
         #ip.version must be 4 in this function.
-        p3.version == 4
+        #p3.version == 4
         if "ip_hdr_length" in self.traffic_config:
             p3.ihl = int(self.traffic_config["ip_hdr_length"])
         if "ip_tos_field" in self.traffic_config:
@@ -64,6 +64,22 @@ class STCPacketsFactory(object):
 
     def build_stc_ipv6(self):
         p3 = IPv6()
+        #p3.version = 6
+        if "ipv6_src_addr" in self.traffic_config:
+            p3.src = self.traffic_config["ipv6_src_addr"]
+        if "ipv6_dst_addr" in self.traffic_config:
+            p3.dst = self.traffic_config["ipv6_dst_addr"]
+        if "ipv6_next_header" in self.traffic_config:
+            p3.nh = int(self.traffic_config["ipv6_next_header"])
+        if "ipv6_hop_limit" in self.traffic_config:
+            p3.hlim = int(self.traffic_config["ipv6_hop_limit"])
+        if "ipv6_flow_label" in self.traffic_config:
+            p3.fl = int(self.traffic_config["ipv6_flow_label"])
+        if "ipv6_traffic_class" in self.traffic_config:
+            p3.tc = int(self.traffic_config["ipv6_traffic_class"])
+        if "ipv6_length" in self.traffic_config:
+            p3.plen = int(self.traffic_config["ipv6_length"])        
+
         return p3
 
     def build_stc_tcp(self):
@@ -99,6 +115,23 @@ class STCPacketsFactory(object):
         p4 = UDP()
         return p4
 
+    def build_stc_payload(self):
+        '''build a stc paload with signature, fill and custom_pattern'''
+
+        #TODO: Check why there is a \n left
+        custom_pattern = self.traffic_config['custom_pattern'].replace("\n", "")
+        l3_length = int(self.traffic_config['l3_length'])
+
+        if self.traffic_config['disable_signature'] == '0':
+            signature_length = 20
+        else:
+            signature_length = 0
+
+        custom_pattern_length = len(custom_pattern)
+        padding_length = l3_length - custom_pattern_length - signature_length - 40
+
+        return '0'*signature_length +  '0'*padding_length + '1'*custom_pattern_length
+
     def _create_stc_packets(self):
         '''create a stl stream base on scapy packet template'''
 
@@ -120,13 +153,16 @@ class STCPacketsFactory(object):
             else:
                 logging.error("layer 4 version must be 6 or 17")
 
-        #Layer Beyond the TCP, STC() should only use defaut input parameters
-        #since the STC layer is created according to the *traffic_config.xml
         if self.case_name in ["case91"]:
-            p5 = STC()
-        elif self.case_name in ["case35"]:
+            #p5 = STC()
+            p5 = self.build_stc_payload()
+        elif self.case_name in ["case35", "case36", "case37", "case38", "case39", "case40", "case66"]:
             signature = 20*'1'
             p5 = signature + (p3.len - 60)*'0'
+        elif self.case_name in ["case66"]: 
+            signature = 20*'1'
+            # case66 generate an IPv6 packet, so the payload is p3.len - 80 for the IPv6 header is twice the IPv4 header.
+            p5 = signature + (p3.len - 80)*'0'
 
         p = p2/p3/p4/p5
         base_pkts = []

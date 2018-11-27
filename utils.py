@@ -92,6 +92,9 @@ def make_traffic_config_xml(fname):
     #logging.info(c)
 
     for d in c.split(','):
+        # if there is a '#' in the line, just ignore it. In many cases '#' and burst_loop_count come together.
+        if "#" in d:
+            continue
         e = d.split('=')
         #logging.info(e)
         f = e[0].replace(' ', '').replace('\'', '')
@@ -107,17 +110,17 @@ def make_traffic_config_xml(fname):
     stream = ET.SubElement(root, "stream")
     other = ET.SubElement(root, "other")
 
-    #take out key-value pair from dictionary and make it a xml file, xml file should be categorized into different parts.
+    # take out key-value pair from dictionary and build t a xml file from it, xml file should be categorized into different parts.
     for name, value in traffic_config.items():
         if name in ["l2_encap", "mac_src", "mac_dst", "frame_size"]:
             ET.SubElement(eth, name).text = value
-        elif name in ["ip_hdr_length", "ip_tos_field", "ip_id", "l3_protocol", "ip_ttl", "ip_fragment_offset", "ip_protocol", "l3_length", "ip_mbz", "ip_src_addr", "ip_dst_addr", "ip_precedence"]:
+        elif name in ["ipv6_src_addr", "ipv6_dst_addr",  "ipv6_traffic_class", "ipv6_next_header", "ipv6_length", "ipv6_flow_label", "ipv6_hop_limit", "ip_hdr_length", "ip_tos_field", "ip_id", "l3_protocol", "ip_ttl", "ip_fragment_offset", "ip_protocol", "l3_length", "ip_mbz", "ip_src_addr", "ip_dst_addr", "ip_precedence"]:
             ET.SubElement(ip, name).text = value
         elif name in ["tcp_src_port", "tcp_dst_port", "tcp_urgent_ptr", "tcp_checksum", "tcp_ack_flag", "tcp_data_offset", "tcp_ack_num", "tcp_fin_flag", "tcp_urg_flag", "tcp_window", "l4_protocol", "tcp_reserved", "tcp_reserved", "tcp_seq_num", "tcp_psh_flag", "tcp_syn_flag", "tcp_rst_flag"]:
             ET.SubElement(tcp, name).text = value
         elif name in ["custom_pattern", "disable_signature", "fill_value"]:
             ET.SubElement(stc, name).text = value
-        elif name in ["ip_src_repeat_count", "ip_src_count", "ip_src_step", "ip_src_mode", "ip_dst_repeat_count", "ip_dst_count", "ip_dst_step", "ip_dst_mode", "tcp_src_port_count", "tcp_src_port_mode", "tcp_src_port_repeat_count", "tcp_src_port_step", "tcp_dst_port_step", "tcp_dst_port_repeat_count", "tcp_dst_port_mode", "tcp_dst_port_count"]:
+        elif name in ["name", "ip_src_repeat_count", "ip_src_count", "ip_src_step", "ip_src_mode", "ip_dst_repeat_count", "ip_dst_count", "ip_dst_step", "ip_dst_mode", "tcp_src_port_count", "tcp_src_port_mode", "tcp_src_port_repeat_count", "tcp_src_port_step", "tcp_dst_port_step", "tcp_dst_port_repeat_count", "tcp_dst_port_mode", "tcp_dst_port_count"]:
             ET.SubElement(stream, name).text = value    
         else:
             ET.SubElement(other, name).text = value
@@ -151,4 +154,4 @@ def make_all_config_file(path, word):
 if __name__ == '__main__':
     #make_traffic_config_xml()
     #make_interface_config_xml()
-    make_all_config_file("c:/test", "case35.py")
+    make_all_config_file("c:/test", "case66_p1_tx.py")

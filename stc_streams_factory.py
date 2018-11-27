@@ -94,7 +94,7 @@ class StcStreamFactory(object):
 
             return ip_src_min_value, self.get_max_ip(ip_src_min_value, ip_src_count)
         else: 
-            return None
+            return ip_src_min_value, None #if there is not ip_src_mode, just return two equal values.
 
     def get_ip_dst_min_max_value(self):
         '''get ip dst max value according to the configuration file'''
@@ -108,7 +108,7 @@ class StcStreamFactory(object):
 
             return ip_dst_min_value, self.get_max_ip(ip_dst_min_value, ip_dst_count)
         else: 
-            return None
+            return ip_dst_min_value, None #if there is not ip_dst_mode, just return two equal values.
 
     def get_tcp_src_min_max_value(self):
         '''get maximum tcp src port value according to the config file '''
@@ -120,7 +120,7 @@ class StcStreamFactory(object):
             tcp_src_port_repeat_count = self.traffic_config["tcp_src_port_repeat_count"]
             return tcp_src_min_value, int(tcp_src_min_value) + int(tcp_src_port_count)
         else:
-            return None
+            return tcp_src_min_value, None #if there is not tcp_src_port_mode, just return two equal values.
 
     def get_tcp_dst_min_max_value(self):
         '''get maximum tcp dst port value according to the config file '''
@@ -132,7 +132,7 @@ class StcStreamFactory(object):
             tcp_dst_port_repeat_count = self.traffic_config["tcp_dst_port_repeat_count"]
             return tcp_dst_min_value, int(tcp_dst_min_value) + int(tcp_dst_port_count)
         else:
-            return None
+            return tcp_dst_min_value, None #if there is not tcp_dst_port_mode, just return two equal values.
 
     def _create_stream(self):
         '''create a stl stream base on scapy packet template'''
@@ -151,30 +151,32 @@ class StcStreamFactory(object):
             streams.append(STLStream(packet=pkt, mode=STLTXSingleBurst(total_pkts=self.burst_loop_count), flow_stats=STLFlowStats(self.pg_id)))
             return streams
         # build a stream according case35
-        elif self.case_name in ["case35"]:
+        elif self.case_name in ["case35", "case36", "case37", "case38", "case39", "case40"]:
             ip_src_min_value, ip_src_max_value = self.get_ip_src_min_max_value()
+            ip_dst_min_value, ip_dst_max_value = self.get_ip_src_min_max_value()
             tcp_src_min_value, tcp_src_max_value = self.get_tcp_src_min_max_value()          
             tcp_dst_min_value, tcp_dst_max_value = self.get_tcp_dst_min_max_value()
+            
+            vmfv = []
+            if not ip_src_max_value == None:
+                vmfv.append(STLVmFlowVar ( "ip_src", min_value=ip_src_min_value, max_value=ip_src_max_value, size=4, step=1, op="inc"))
+                vmfv.append(STLVmWrFlowVar(fv_name="ip_src", pkt_offset="IP.src")) # write ip to packet IP.src
+            if not ip_dst_max_value == None:
+                vmfv.append(STLVmFlowVar ( "ip_dst", min_value=ip_dst_min_value, max_value=ip_dst_max_value, size=4, step=1, op="inc"))
+                vmfv.append(STLVmWrFlowVar(fv_name="ip_dst", pkt_offset="IP.dst")) # write ip to packet IP.src
+            if not tcp_src_max_value == None:
+                vmfv.append(STLVmFlowVar ( "tcp_src", min_value=tcp_src_min_value, max_value=tcp_src_max_value, size=2, step=1, op="inc"))
+                vmfv.append(STLVmWrFlowVar(fv_name="tcp_src", pkt_offset="TCP.sport")) # write sport 
+            if not tcp_dst_max_value == None:
+                vmfv.append(STLVmFlowVar ( "tcp_dst", min_value=tcp_dst_min_value, max_value=tcp_dst_max_value, size=2, step=1, op="inc"))
+                vmfv.append(STLVmWrFlowVar(fv_name="tcp_dst", pkt_offset="TCP.dport")) # write dport 
+            vmfv.append(STLVmFixIpv4(offset="IP"))
 
-            vm = STLScVmRaw([#STLVmFlowVar("ip_dst", value_list=self.get_ip_list(), op="inc"),
-                             STLVmFlowVar ( "ip_src", min_value=ip_src_min_value, max_value=ip_src_max_value, size=4, step=1, op="inc"),
-                             STLVmFlowVar ( "tcp_src", min_value=tcp_src_min_value, max_value=tcp_src_max_value, size=2, step=1, op="inc"),
-                             STLVmFlowVar ( "tcp_dst", min_value=tcp_dst_min_value, max_value=tcp_dst_max_value, size=2, step=1, op="inc"),
-
-                             STLVmWrFlowVar(fv_name="ip_src", pkt_offset="IP.src"),  # write ip to packet IP.src
-                             STLVmWrFlowVar(fv_name="tcp_src", pkt_offset="TCP.sport"),  # write sport 
-                             STLVmWrFlowVar(fv_name="tcp_dst", pkt_offset="TCP.dport"),  # write dport 
-
-                             STLVmFixIpv4(offset="IP")  # fix checksum
-                             ],
-                            #split_by_field="ip_dst",
-                            cache_size=self.burst_loop_count  # cache the packets, much better performance
-                            )
+            vm = STLScVmRaw(vmfv, cache_size=self.burst_loop_count)
 
             pkt = STLPktBuilder(pkt=base_pkt[0], vm=vm)
             streams.append(STLStream(packet=pkt, mac_dst_override_mode=1, mode=STLTXSingleBurst(total_pkts=self.burst_loop_count), flow_stats=STLFlowStats(self.pg_id)))
             return streams
-
 
         #streams.append(STLStream(packet=pkt, mode=STLTXCont()))
         return streams
@@ -212,9 +214,31 @@ def burst_streams(port_a, port_b, burst_loop_count, rate, config_file_name, case
         c.start(ports=[port_a], mult=rate)
         c.wait_on_traffic(ports=[port_a])
 
-        f_log_1 = "/var/log/z-tester/traffic_all_" + case_name + ".txt"
-        f_log_2 = "/var/log/z-tester/pg_stats_" + case_name + ".txt"
-        f_log_3 = "/var/log/z-tester/streams_" + case_name + ".txt"
+        f_log_1 = "/var/log/z-tester/" + case_name + "/traffic_all_" + case_name + ".txt"
+        f_log_2 = "/var/log/z-tester/" + case_name + "/pg_stats_" + case_name + ".txt"
+        f_log_3 = "/var/log/z-tester/" + case_name + "/streams_" + case_name + ".txt"
+
+        if not os.path.exists(os.path.dirname(f_log_1)):
+            try:
+                os.makedirs(os.path.dirname(f_log_1))
+            except OSError as e: # Guard against race condition
+                print "Error: fail to create the log directory."
+                print e
+
+        if not os.path.exists(os.path.dirname(f_log_2)):
+            try:
+                os.makedirs(os.path.dirname(f_log_2))
+            except OSError as e: # Guard against race condition
+                print "Error: fail to create the log directory."
+                print e
+
+        if not os.path.exists(os.path.dirname(f_log_2)):
+            try:
+                os.makedirs(os.path.dirname(f_log_2))
+            except OSError as e: # Guard against race condition
+                print "Error: fail to create the log directory."
+                print e
+
         stats = c.get_stats()
         with open(f_log_1, 'w') as f:
             f.write(str(stats))
@@ -251,9 +275,9 @@ def burst_streams(port_a, port_b, burst_loop_count, rate, config_file_name, case
 if __name__ == '__main__':
 
     t0 = time.time()
-    #burst_streams(port_a=0, port_b=1, burst_loop_count=1000, rate='1000pps', config_file_name="config/case91_p1_tx_traffic_config.xml", case_name="case91")
-    burst_streams(port_a=0, port_b=1, burst_loop_count=1000, rate='1000pps', config_file_name="config/case35_traffic_config.xml", case_name="case35")
+    burst_streams(port_a=0, port_b=1, burst_loop_count=1000, rate='1000pps', config_file_name="config/case91_p1_tx_traffic_config.xml", case_name="case91")
+    #burst_streams(port_a=0, port_b=1, burst_loop_count=1000, rate='1000pps', config_file_name="config/case37_traffic_config.xml", case_name="case37")
     t1 = time.time()
 
-    logging.info("send 1000 packets with dst ip list, %10.2f seconds used." % (t1 - t0))
+    logging.info("Time used:, %10.2f seconds used." % (t1 - t0))
 
